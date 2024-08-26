@@ -6,37 +6,7 @@ import torchvision.transforms as transforms
 from torchvision import models
 from collections import Counter
 import cv2
-#from openai import OpenAI
-#import os
-#import numpy as np
-
-#api_key = os.getenv('OPENAI_API_KEY')
-
-
-# def fetch_disease_info(disease_name):
-#     client = OpenAI(api_key=api_key)
-
-#     if "healthy" in disease_name.lower():
-#         context = [
-#             {"role": "system", "content": "You are a helpful assistant who provides detailed information about plant health."},
-#             {"role": "user", "content": f"Provide one paragraph of general information about the {disease_name} plant. Start the paragraph with the title 'General Information:'."},
-#             {"role": "user", "content": f"Provide one paragraph with tips and advice on how to optimize the growth and health of the {disease_name} plant, presented as bullet points. Start the paragraph with the title 'Growth Optimization Tips:'."}
-#         ]
-#     else:
-#         context = [
-#             {"role": "system", "content": "You are a helpful assistant who provides detailed information about plant diseases."},
-#             {"role": "user", "content": f"Provide one paragraph explaining what {disease_name} is and detailed information about this disease. Start the paragraph with the title 'Disease Overview:'."},
-#             {"role": "user", "content": f"Provide one paragraph discussing the reasons why {disease_name} manifests in plants. Start the paragraph with the title 'Causes:'."},
-#             {"role": "user", "content": f"Provide one paragraph with solutions or treatments to address {disease_name} in plants, presented as bullet points. Start the paragraph with the title 'Treatment and Management:'."}
-#         ]
-    
-#     completion = client.chat.completions.create(
-#         model="gpt-4o-mini",
-#         messages=context
-#     )
-#     message_content = completion.choices[0].message.content
-#     return message_content
-
+import tempfile
 
 class CustomImageProcessor:
     def __init__(self, do_normalize=True, do_resize=True, do_random_resized_crop=True, 
@@ -82,13 +52,9 @@ class CustomImageProcessor:
     def __call__(self, image):
         return self.transform(image)
 
-
-
-
 # Instantiate the custom image processor
 custom_processor = CustomImageProcessor()
 
-# Basic model class definition
 class PlantDiseaseClassifier:
     def __init__(self, num_classes):
         self.model = models.efficientnet_b0(pretrained=True)
@@ -107,12 +73,11 @@ class PlantDiseaseClassifier:
             _, predicted = torch.max(output, 1)
         return predicted.item()
 
-
 # Instantiate the classifier
 classifier = PlantDiseaseClassifier(num_classes=44)
 
 # Load the model weights
-checkpoint_path = 'model_epoch_10_acc_0.9255.pth'
+checkpoint_path = 'path/to/your/model_epoch_9acc0.8929.pth'
 classifier.load_model(checkpoint_path)
 
 # Streamlit app header
@@ -122,9 +87,6 @@ def model_prediction(test_image):
     processed_image = custom_processor(test_image).unsqueeze(0)  # Add batch dimension
     predicted_class_index = classifier.classify_image(processed_image)
     return predicted_class_index
-
-
-import tempfile
 
 def extract_frames(video_file, interval=5):
     # Save the video file to a temporary location
@@ -150,13 +112,10 @@ def extract_frames(video_file, interval=5):
     cap.release()
     return frame_list
 
-
-
-
 def model_prediction_video(frames):
     disease_predictions = []
 
-    for frame in enumerate(frames):
+    for frame in frames:
         # Convert the frame to an Image object for processing
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
@@ -176,57 +135,22 @@ def model_prediction_video(frames):
 
     return disease_predictions
 
-
-
-    #return disease_predictions
-
-
 # Define the class names
 class_names = [
-    'Apple black rot',                       # Index 0
-    'Apple healthy',                         # Index 1
-    'Apple rust',                            # Index 2
-    'Apple scab',                            # Index 3
-    'Cassava bacterial blight',              # Index 4
-    'Cassava brown streak disease',          # Index 5
-    'Cassava healthy',                       # Index 6
-    'Cassava mosaic disease',                # Index 7
-    'Cherry healthy',                        # Index 8
-    'Cherry powdery mildew',                 # Index 9
-    'Corn common rust',                      # Index 10
-    'Corn gray leaf spot',                   # Index 11
-    'Corn healthy',                          # Index 12
-    'Corn northern leaf blight',             # Index 13
-    'Grape black measles',                   # Index 14
-    'Grape black rot',                       # Index 15
-    'Grape healthy',                         # Index 16
-    'Grape leaf blight (isariopsis leaf spot)', # Index 17
-    'Olive aculus olearius',                 # Index 18
-    'Olive healthy',                         # Index 19
-    'Olive peacock spot',                    # Index 20
-    'Peach bacterial spot',                  # Index 21
-    'Peach healthy',                         # Index 22
-    'Pepper bell bacterial spot',            # Index 23
-    'Pepper bell healthy',                   # Index 24
-    'Potato early blight',                   # Index 25
-    'Potato healthy',                        # Index 26
-    'Potato late blight',                    # Index 27
-    'Soybean caterpillar',                   # Index 28
-    'Soybean diabrotica speciosa',           # Index 29
-    'Soybean healthy',                       # Index 30                
-    'Strawberry leaf scorch',# Index 31
-    'Strawberry healthy',                # Index 32
-    'Tea algal leaf',                        # Index 33
-    'Tea brown blight',                      # Index 34
-    'Tea healthy',                           # Index 35
-    'Tea red leaf spot',                     # Index 36
-    'Tomato bacterial spot',                 # Index 37
-    'Tomato early blight',                   # Index 38
-    'Tomato healthy',                        # Index 39
-    'Tomato leaf mold',                      # Index 40
-    'Wheat brown rust',                      # Index 41
-    'Wheat healthy',                         # Index 42
-    'Wheat septoria',                        # Index 43
+    'Apple black rot', 'Apple healthy', 'Apple rust', 'Apple scab',
+    'Cassava bacterial blight', 'Cassava brown streak disease', 'Cassava healthy',
+    'Cassava mosaic disease', 'Cherry healthy', 'Cherry powdery mildew',
+    'Corn common rust', 'Corn gray leaf spot', 'Corn healthy',
+    'Corn northern leaf blight', 'Grape black measles', 'Grape black rot',
+    'Grape healthy', 'Grape leaf blight (isariopsis leaf spot)', 'Olive aculus olearius',
+    'Olive healthy', 'Olive peacock spot', 'Peach bacterial spot', 'Peach healthy',
+    'Pepper bell bacterial spot', 'Pepper bell healthy', 'Potato early blight',
+    'Potato healthy', 'Potato late blight', 'Soybean caterpillar',
+    'Soybean diabrotica speciosa', 'Soybean healthy', 'Strawberry leaf scorch',
+    'Strawberry healthy', 'Tea algal leaf', 'Tea brown blight', 'Tea healthy',
+    'Tea red leaf spot', 'Tomato bacterial spot', 'Tomato early blight',
+    'Tomato healthy', 'Tomato leaf mold', 'Wheat brown rust', 'Wheat healthy',
+    'Wheat septoria'
 ]
 
 # Radio button to select upload type
@@ -243,8 +167,6 @@ if upload_type == "Single Image":
             result_index = model_prediction(Image.open(test_image))
             predicted_disease = class_names[result_index]
             st.success(f"Model is predicting: {predicted_disease}")
-            # disease_info = fetch_disease_info(predicted_disease)
-            # st.write(disease_info)
         else:
             st.error("Please upload an image.")
 
@@ -300,8 +222,6 @@ elif upload_type == "Video":
             most_common_disease, count = counter.most_common(1)[0]
 
             st.write(f"The most common disease detected is '{most_common_disease}' which appears {count} times.")
-            # disease_info = fetch_disease_info(most_common_disease)
-            # st.write(disease_info)
             
         else:
             st.error("Please upload a video.")
