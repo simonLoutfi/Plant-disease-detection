@@ -112,7 +112,7 @@ class PlantDiseaseClassifier:
 classifier = PlantDiseaseClassifier(num_classes=44)
 
 # Load the model weights
-checkpoint_path = '/Users/PC/Desktop/eurisco/final project/model_epoch_9acc0.8929.pth'
+checkpoint_path = 'model_epoch_10_acc_0.9255.pth'
 classifier.load_model(checkpoint_path)
 
 # Streamlit app header
