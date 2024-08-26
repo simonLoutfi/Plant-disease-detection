@@ -6,36 +6,36 @@ import torchvision.transforms as transforms
 from torchvision import models
 from collections import Counter
 import cv2
-from openai import OpenAI
-import os
-import numpy as np
+#from openai import OpenAI
+#import os
+#import numpy as np
 
-api_key = os.getenv('OPENAI_API_KEY')
+#api_key = os.getenv('OPENAI_API_KEY')
 
 
-def fetch_disease_info(disease_name):
-    client = OpenAI(api_key=api_key)
+# def fetch_disease_info(disease_name):
+#     client = OpenAI(api_key=api_key)
 
-    if "healthy" in disease_name.lower():
-        context = [
-            {"role": "system", "content": "You are a helpful assistant who provides detailed information about plant health."},
-            {"role": "user", "content": f"Provide one paragraph of general information about the {disease_name} plant. Start the paragraph with the title 'General Information:'."},
-            {"role": "user", "content": f"Provide one paragraph with tips and advice on how to optimize the growth and health of the {disease_name} plant, presented as bullet points. Start the paragraph with the title 'Growth Optimization Tips:'."}
-        ]
-    else:
-        context = [
-            {"role": "system", "content": "You are a helpful assistant who provides detailed information about plant diseases."},
-            {"role": "user", "content": f"Provide one paragraph explaining what {disease_name} is and detailed information about this disease. Start the paragraph with the title 'Disease Overview:'."},
-            {"role": "user", "content": f"Provide one paragraph discussing the reasons why {disease_name} manifests in plants. Start the paragraph with the title 'Causes:'."},
-            {"role": "user", "content": f"Provide one paragraph with solutions or treatments to address {disease_name} in plants, presented as bullet points. Start the paragraph with the title 'Treatment and Management:'."}
-        ]
+#     if "healthy" in disease_name.lower():
+#         context = [
+#             {"role": "system", "content": "You are a helpful assistant who provides detailed information about plant health."},
+#             {"role": "user", "content": f"Provide one paragraph of general information about the {disease_name} plant. Start the paragraph with the title 'General Information:'."},
+#             {"role": "user", "content": f"Provide one paragraph with tips and advice on how to optimize the growth and health of the {disease_name} plant, presented as bullet points. Start the paragraph with the title 'Growth Optimization Tips:'."}
+#         ]
+#     else:
+#         context = [
+#             {"role": "system", "content": "You are a helpful assistant who provides detailed information about plant diseases."},
+#             {"role": "user", "content": f"Provide one paragraph explaining what {disease_name} is and detailed information about this disease. Start the paragraph with the title 'Disease Overview:'."},
+#             {"role": "user", "content": f"Provide one paragraph discussing the reasons why {disease_name} manifests in plants. Start the paragraph with the title 'Causes:'."},
+#             {"role": "user", "content": f"Provide one paragraph with solutions or treatments to address {disease_name} in plants, presented as bullet points. Start the paragraph with the title 'Treatment and Management:'."}
+#         ]
     
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=context
-    )
-    message_content = completion.choices[0].message.content
-    return message_content
+#     completion = client.chat.completions.create(
+#         model="gpt-4o-mini",
+#         messages=context
+#     )
+#     message_content = completion.choices[0].message.content
+#     return message_content
 
 
 class CustomImageProcessor:
@@ -124,26 +124,6 @@ def model_prediction(test_image):
     return predicted_class_index
 
 
-
-# def extract_frames(video_path, interval=5):
-#     cap = cv2.VideoCapture(video_path)
-#     frame_list = []
-#     frame_id = 0
-    
-#     while True:
-#         ret, frame = cap.read()
-#         if not ret:
-#             break
-        
-#         if frame_id % interval == 0:
-#             frame_list.append(frame)
-        
-#         frame_id += 1
-    
-#     cap.release()
-#     return frame_list
-
-
 import tempfile
 
 def extract_frames(video_file, interval=5):
@@ -171,33 +151,12 @@ def extract_frames(video_file, interval=5):
     return frame_list
 
 
-# def model_prediction_video(frames):
-#     disease_predictions = []
 
-#     for frame in frames:
-#         # Convert the frame to an Image object for processing
-#         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-#         # Process the image using the custom processor
-#         processed_image = custom_processor(image)
-#         processed_image = processed_image.unsqueeze(0)
-
-#         # Classify the processed image and get the class index
-#         predicted_class_index = classifier.classify_image(processed_image)
-
-#         # Map the index to the corresponding class name
-#         predicted_class_name = class_names[predicted_class_index]
-
-#         # Append the disease prediction to the list
-#         disease_predictions.append(predicted_class_name)
-#         st.write(predicted_class_name)
 
 def model_prediction_video(frames):
     disease_predictions = []
-    # strawberry_healthy_folder = "Strawberry_healthy_frames"
-    # os.makedirs(strawberry_healthy_folder, exist_ok=True)
 
-    for idx, frame in enumerate(frames):
+    for frame in enumerate(frames):
         # Convert the frame to an Image object for processing
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
@@ -214,11 +173,6 @@ def model_prediction_video(frames):
         # Append the disease prediction to the list
         disease_predictions.append(predicted_class_name)
         st.write(predicted_class_name)
-
-        # # Save the frame if the prediction is "Strawberry healthy"
-        # if predicted_class_name == "Strawberry healthy":
-        #     frame_filename = f"frame_{idx}.jpg"
-        #     cv2.imwrite(os.path.join(strawberry_healthy_folder, frame_filename), cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
 
     return disease_predictions
 
@@ -289,8 +243,8 @@ if upload_type == "Single Image":
             result_index = model_prediction(Image.open(test_image))
             predicted_disease = class_names[result_index]
             st.success(f"Model is predicting: {predicted_disease}")
-            disease_info = fetch_disease_info(predicted_disease)
-            st.write(disease_info)
+            # disease_info = fetch_disease_info(predicted_disease)
+            # st.write(disease_info)
         else:
             st.error("Please upload an image.")
 
@@ -346,8 +300,8 @@ elif upload_type == "Video":
             most_common_disease, count = counter.most_common(1)[0]
 
             st.write(f"The most common disease detected is '{most_common_disease}' which appears {count} times.")
-            disease_info = fetch_disease_info(most_common_disease)
-            st.write(disease_info)
+            # disease_info = fetch_disease_info(most_common_disease)
+            # st.write(disease_info)
             
         else:
             st.error("Please upload a video.")
