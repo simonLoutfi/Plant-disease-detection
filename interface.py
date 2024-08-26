@@ -1,17 +1,14 @@
 import streamlit as st
 from PIL import Image
-import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
-from torchvision import models
-from collections import Counter
+import tensorflow as tf
+import numpy as np
 import cv2
 from openai import OpenAI
 import os
-import numpy as np
+import tempfile
+from collections import Counter
 
 api_key = os.getenv('OPENAI_API_KEY')
-
 
 def fetch_disease_info(disease_name):
     client = OpenAI(api_key=api_key)
@@ -39,51 +36,17 @@ def fetch_disease_info(disease_name):
 
 
 class CustomImageProcessor:
-    def __init__(self, do_normalize=True, do_resize=True, do_random_resized_crop=True, 
-                 do_random_horizontal_flip=True, do_center_crop=False, 
-                 image_mean=[0.485, 0.456, 0.406], image_std=[0.229, 0.224, 0.225], 
-                 resample=Image.BILINEAR, size=224, crop_size=224, flip_prob=0.5):
-        self.do_normalize = do_normalize
-        self.do_resize = do_resize
-        self.do_random_resized_crop = do_random_resized_crop
-        self.do_random_horizontal_flip = do_random_horizontal_flip
-        self.do_center_crop = do_center_crop
+    def __init__(self, image_mean=[0.485, 0.456, 0.406], image_std=[0.229, 0.224, 0.225], size=224):
         self.image_mean = image_mean
         self.image_std = image_std
-        self.resample = resample
         self.size = size
-        self.crop_size = crop_size
-        self.flip_prob = flip_prob
-        
-        self.transform = self.build_transform()
 
-    def build_transform(self):
-        transform_list = []
-        
-        if self.do_random_resized_crop:
-            transform_list.append(transforms.RandomResizedCrop(self.crop_size, interpolation=self.resample))
-        
-        if self.do_random_horizontal_flip:
-            transform_list.append(transforms.RandomHorizontalFlip(p=self.flip_prob))
-        
-        if self.do_resize:
-            transform_list.append(transforms.Resize(self.size, interpolation=self.resample))
-        
-        if self.do_center_crop:
-            transform_list.append(transforms.CenterCrop(self.crop_size))
-        
-        transform_list.append(transforms.ToTensor())
-        
-        if self.do_normalize:
-            transform_list.append(transforms.Normalize(mean=self.image_mean, std=self.image_std))
-        
-        return transforms.Compose(transform_list)
-
-    def __call__(self, image):
-        return self.transform(image)
-
-
-
+    def process_image(self, image):
+        image = image.resize((self.size, self.size))
+        image = np.array(image) / 255.0
+        image = (image - self.image_mean) / self.image_std
+        image = np.expand_dims(image, axis=0)
+        return image
 
 # Instantiate the custom image processor
 custom_processor = CustomImageProcessor()
@@ -91,60 +54,33 @@ custom_processor = CustomImageProcessor()
 # Basic model class definition
 class PlantDiseaseClassifier:
     def __init__(self, num_classes):
-        self.model = models.efficientnet_b0(pretrained=True)
-        self.model.classifier[1] = nn.Linear(self.model.classifier[1].in_features, num_classes)
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model.to(self.device)
+        base_model = tf.keras.applications.EfficientNetB0(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+        x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
+        output = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+        self.model = tf.keras.Model(inputs=base_model.input, outputs=output)
 
     def load_model(self, model_path):
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
-        self.model.eval()
+        self.model.load_weights(model_path)
 
     def classify_image(self, processed_image):
-        with torch.no_grad():
-            processed_image = processed_image.to(self.device)
-            output = self.model(processed_image)
-            _, predicted = torch.max(output, 1)
-        return predicted.item()
-
+        predictions = self.model.predict(processed_image)
+        return np.argmax(predictions, axis=1)[0]
 
 # Instantiate the classifier
 classifier = PlantDiseaseClassifier(num_classes=44)
 
 # Load the model weights
-checkpoint_path = 'model_epoch_10_acc_0.9255.pth'
+checkpoint_path = 'model_epoch_10_acc_0.9255.h5'
 classifier.load_model(checkpoint_path)
 
 # Streamlit app header
 st.header("Disease Recognition")
 
 def model_prediction(test_image):
-    processed_image = custom_processor(test_image).unsqueeze(0)  # Add batch dimension
+    processed_image = custom_processor.process_image(test_image)
     predicted_class_index = classifier.classify_image(processed_image)
     return predicted_class_index
 
-
-
-# def extract_frames(video_path, interval=5):
-#     cap = cv2.VideoCapture(video_path)
-#     frame_list = []
-#     frame_id = 0
-    
-#     while True:
-#         ret, frame = cap.read()
-#         if not ret:
-#             break
-        
-#         if frame_id % interval == 0:
-#             frame_list.append(frame)
-        
-#         frame_id += 1
-    
-#     cap.release()
-#     return frame_list
-
-
-import tempfile
 
 def extract_frames(video_file, interval=5):
     # Save the video file to a temporary location
@@ -170,40 +106,15 @@ def extract_frames(video_file, interval=5):
     cap.release()
     return frame_list
 
-
-# def model_prediction_video(frames):
-#     disease_predictions = []
-
-#     for frame in frames:
-#         # Convert the frame to an Image object for processing
-#         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-#         # Process the image using the custom processor
-#         processed_image = custom_processor(image)
-#         processed_image = processed_image.unsqueeze(0)
-
-#         # Classify the processed image and get the class index
-#         predicted_class_index = classifier.classify_image(processed_image)
-
-#         # Map the index to the corresponding class name
-#         predicted_class_name = class_names[predicted_class_index]
-
-#         # Append the disease prediction to the list
-#         disease_predictions.append(predicted_class_name)
-#         st.write(predicted_class_name)
-
 def model_prediction_video(frames):
     disease_predictions = []
-    # strawberry_healthy_folder = "Strawberry_healthy_frames"
-    # os.makedirs(strawberry_healthy_folder, exist_ok=True)
 
     for idx, frame in enumerate(frames):
         # Convert the frame to an Image object for processing
         image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
         # Process the image using the custom processor
-        processed_image = custom_processor(image)
-        processed_image = processed_image.unsqueeze(0)
+        processed_image = custom_processor.process_image(image)
 
         # Classify the processed image and get the class index
         predicted_class_index = classifier.classify_image(processed_image)
@@ -215,16 +126,7 @@ def model_prediction_video(frames):
         disease_predictions.append(predicted_class_name)
         st.write(predicted_class_name)
 
-        # # Save the frame if the prediction is "Strawberry healthy"
-        # if predicted_class_name == "Strawberry healthy":
-        #     frame_filename = f"frame_{idx}.jpg"
-        #     cv2.imwrite(os.path.join(strawberry_healthy_folder, frame_filename), cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR))
-
     return disease_predictions
-
-
-
-    #return disease_predictions
 
 
 # Define the class names
@@ -260,8 +162,8 @@ class_names = [
     'Soybean caterpillar',                   # Index 28
     'Soybean diabrotica speciosa',           # Index 29
     'Soybean healthy',                       # Index 30                
-    'Strawberry leaf scorch',# Index 31
-    'Strawberry healthy',                # Index 32
+    'Strawberry leaf scorch',                # Index 31
+    'Strawberry healthy',                    # Index 32
     'Tea algal leaf',                        # Index 33
     'Tea brown blight',                      # Index 34
     'Tea healthy',                           # Index 35
@@ -315,39 +217,21 @@ elif upload_type == "Multiple Images":
                 result_index = model_prediction(Image.open(uploaded_file))
                 predicted_disease = class_names[result_index]
                 predictions.append(predicted_disease)
-            
-            total_images = len(predictions)
-            class_counts = Counter(predictions)
-            class_percentages = {class_name: (count / total_images) * 100 for class_name, count in class_counts.items()}
-            
-            st.write("Class Distribution in the Uploaded Images:")
-            for class_name, percentage in class_percentages.items():
-                st.write(f"{class_name}: {percentage:.2f}%")
-        else:
-            st.error("Please upload at least one image.")
-        
-elif upload_type == "Video":
-    video_file = st.file_uploader("Upload a Video", type=["mp4", "avi", "mov"], key="video_uploader")
+                st.write(f"Prediction: {predicted_disease}")
 
-    if st.button("Process Video"):
-        if video_file:
-            st.write("Processing video...")
-            
-            # 1. Extract frames from video
-            frames = extract_frames(video_file, interval=30)
-            
-            # 2. Detect disease in each frame
-            disease_predictions = model_prediction_video(frames)
-            
-            # 3. Output the detected diseases
-            counter = Counter(disease_predictions)
-
-            # Find the most common disease
-            most_common_disease, count = counter.most_common(1)[0]
-
-            st.write(f"The most common disease detected is '{most_common_disease}' which appears {count} times.")
+            most_common_disease = Counter(predictions).most_common(1)[0][0]
             disease_info = fetch_disease_info(most_common_disease)
             st.write(disease_info)
-            
         else:
-            st.error("Please upload a video.")
+            st.error("Please upload images.")
+
+elif upload_type == "Video":
+    video_file = st.file_uploader("Choose a video...", type=["mp4", "mov", "avi"], key="video_uploader")
+
+    if video_file and st.button("Show Video"):
+        st.video(video_file, format="video/mp4")
+
+    if video_file and st.button("Process Video"):
+        frames = extract_frames(video_file)
+        predictions = model_prediction_video(frames)
+
