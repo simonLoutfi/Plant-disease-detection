@@ -74,7 +74,7 @@ class PlantDiseaseClassifier:
         return predicted.item()
 
 # Instantiate the classifier
-classifier = PlantDiseaseClassifier(num_classes=44)
+classifier = PlantDiseaseClassifier(num_classes=41)
 
 # Load the model weights
 checkpoint_path = 'model_epoch_10acc0.8926.pth'
